@@ -486,7 +486,8 @@ else:
 
 # HTTP Server Configuration
 HTTP_ENABLED = os.getenv('MCP_HTTP_ENABLED', 'false').lower() == 'true'
-HTTP_PORT = safe_get_int_env('MCP_HTTP_PORT', 8000, min_value=1024, max_value=65535)  # Non-privileged ports only
+# Railway uses PORT environment variable - check it first, then fall back to MCP_HTTP_PORT
+HTTP_PORT = safe_get_int_env('PORT', None) or safe_get_int_env('MCP_HTTP_PORT', 8000, min_value=1024, max_value=65535)  # Non-privileged ports only
 HTTP_HOST = os.getenv('MCP_HTTP_HOST', '0.0.0.0')
 CORS_ORIGINS = os.getenv('MCP_CORS_ORIGINS', '*').split(',')
 SSE_HEARTBEAT_INTERVAL = safe_get_int_env('MCP_SSE_HEARTBEAT', 30, min_value=5, max_value=300)  # 5 seconds to 5 minutes

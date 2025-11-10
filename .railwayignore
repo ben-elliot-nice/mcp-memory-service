@@ -1,0 +1,93 @@
+# Railway Ignore File
+# Excludes files from Railway builds for faster deployments
+
+# Git
+.git
+.github
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+CHANGELOG.md
+CHANGELOG-HISTORIC.md
+README.md
+ROADMAP.md
+CLAUDE.md
+AGENTS.md
+CONTRIBUTING.md
+LICENSE
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.pyenv/
+
+# Testing
+tests/
+test_*.py
+*_test.py
+pytest.ini
+.coveragerc
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Docker (Railway uses the Dockerfile but ignores these)
+docker-compose*.yml
+.dockerignore
+
+# Scripts (unless needed at runtime)
+scripts/installation/
+scripts/validation/
+scripts/maintenance/
+scripts/pr/
+
+# Examples (not needed in production)
+examples/
+demos/
+
+# Archive
+archive/
+
+# Local development
+.env.example
+.env.local
+.env.development
+claude-hooks/
+node_modules/
+
+# Data directories (should use Railway Volumes instead)
+data/
+*.db
+*.db-shm
+*.db-wal
+backups/

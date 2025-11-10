@@ -17,13 +17,14 @@ if __name__ == "__main__":
     # Log configuration
     logger.info("Starting MCP Memory Service FastAPI server with the following configuration:")
     logger.info(f"  Storage Backend: {os.environ.get('MCP_MEMORY_STORAGE_BACKEND', 'sqlite_vec')}")
-    logger.info(f"  HTTP Port: {os.environ.get('MCP_HTTP_PORT', '8000')}")
+    # Railway uses PORT environment variable, check it first
+    http_port = int(os.environ.get('PORT') or os.environ.get('MCP_HTTP_PORT', 8000))
+
+    logger.info(f"  HTTP Port: {http_port}")
     logger.info(f"  HTTPS Enabled: {os.environ.get('MCP_HTTPS_ENABLED', 'false')}")
     logger.info(f"  HTTPS Port: {os.environ.get('MCP_HTTPS_PORT', '8443')}")
     logger.info(f"  mDNS Enabled: {os.environ.get('MCP_MDNS_ENABLED', 'false')}")
     logger.info(f"  API Key Set: {'Yes' if os.environ.get('MCP_API_KEY') else 'No'}")
-    
-    http_port = int(os.environ.get('MCP_HTTP_PORT', 8000))
     
     # Check if HTTPS is enabled
     if os.environ.get('MCP_HTTPS_ENABLED', 'false').lower() == 'true':
