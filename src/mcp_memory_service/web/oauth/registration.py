@@ -22,7 +22,7 @@ import time
 import logging
 from typing import List, Optional
 from urllib.parse import urlparse, ParseResult
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import ValidationError
 
 from .models import (
@@ -31,6 +31,7 @@ from .models import (
     RegisteredClient
 )
 from .storage import oauth_storage
+from .middleware import require_admin_access, AuthenticationResult
 
 logger = logging.getLogger(__name__)
 
@@ -194,12 +195,16 @@ def validate_response_types(response_types: List[str]) -> None:
 
 
 @router.post("/register", response_model=ClientRegistrationResponse, status_code=status.HTTP_201_CREATED)
-async def register_client(request: ClientRegistrationRequest) -> ClientRegistrationResponse:
+async def register_client(
+    request: ClientRegistrationRequest,
+    user: AuthenticationResult = Depends(require_admin_access)
+) -> ClientRegistrationResponse:
     """
-    OAuth 2.1 Dynamic Client Registration endpoint.
+    OAuth 2.1 Dynamic Client Registration endpoint (Admin only).
 
     Implements RFC 7591 - OAuth 2.0 Dynamic Client Registration Protocol.
-    Allows clients to register dynamically with the authorization server.
+    Requires API key authentication (admin scope) to register new clients.
+    OAuth tokens cannot register new clients for security.
     """
     logger.info("OAuth client registration request received")
 
@@ -276,12 +281,16 @@ async def register_client(request: ClientRegistrationRequest) -> ClientRegistrat
 
 
 @router.get("/clients/{client_id}")
-async def get_client_info(client_id: str) -> ClientRegistrationResponse:
+async def get_client_info(
+    client_id: str,
+    user: AuthenticationResult = Depends(require_admin_access)
+) -> ClientRegistrationResponse:
     """
-    Get information about a registered client.
+    Get information about a registered client (Admin only).
 
     Note: This is an extension endpoint, not part of RFC 7591.
     Useful for debugging and client management.
+    Requires API key authentication (admin scope).
     """
     logger.info(f"Client info request for client_id={client_id}")
 
@@ -305,3 +314,90 @@ async def get_client_info(client_id: str) -> ClientRegistrationResponse:
         token_endpoint_auth_method=client.token_endpoint_auth_method,
         client_name=client.client_name
     )
+
+
+@router.get("/clients")
+async def list_all_clients(
+    user: AuthenticationResult = Depends(require_admin_access)
+) -> List[ClientRegistrationResponse]:
+    """
+    List all registered OAuth clients (Admin only).
+
+    Returns all registered clients without exposing their secrets.
+    Requires API key authentication (admin scope).
+    """
+    logger.info("Listing all OAuth clients")
+
+    clients = []
+    # Access the internal clients dictionary
+    async with oauth_storage._lock:
+        for client in oauth_storage._clients.values():
+            clients.append(ClientRegistrationResponse(
+                client_id=client.client_id,
+                client_secret="[REDACTED]",  # Don't expose secrets
+                redirect_uris=client.redirect_uris,
+                grant_types=client.grant_types,
+                response_types=client.response_types,
+                token_endpoint_auth_method=client.token_endpoint_auth_method,
+                client_name=client.client_name
+            ))
+
+    logger.info(f"Returned {len(clients)} OAuth clients")
+    return clients
+
+
+@router.delete("/clients/{client_id}")
+async def delete_client(
+    client_id: str,
+    user: AuthenticationResult = Depends(require_admin_access)
+) -> dict:
+    """
+    Delete an OAuth client (Admin only).
+
+    Removes the client registration and revokes all associated tokens.
+    Requires API key authentication (admin scope).
+    """
+    logger.info(f"Deleting OAuth client: {client_id}")
+
+    # Check if client exists
+    client = await oauth_storage.get_client(client_id)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "invalid_client",
+                "error_description": f"Client {client_id} not found"
+            }
+        )
+
+    # Delete the client
+    async with oauth_storage._lock:
+        if client_id in oauth_storage._clients:
+            del oauth_storage._clients[client_id]
+
+        # Revoke all access tokens issued to this client
+        tokens_to_revoke = [
+            token for token, data in oauth_storage._access_tokens.items()
+            if data.get("client_id") == client_id
+        ]
+        for token in tokens_to_revoke:
+            del oauth_storage._access_tokens[token]
+
+        # Revoke any pending authorization codes for this client
+        codes_to_revoke = [
+            code for code, data in oauth_storage._authorization_codes.items()
+            if data.get("client_id") == client_id
+        ]
+        for code in codes_to_revoke:
+            del oauth_storage._authorization_codes[code]
+
+    logger.info(
+        f"OAuth client deleted: {client_id} "
+        f"({len(tokens_to_revoke)} tokens revoked, {len(codes_to_revoke)} codes revoked)"
+    )
+
+    return {
+        "message": f"Client {client_id} deleted successfully",
+        "tokens_revoked": len(tokens_to_revoke),
+        "codes_revoked": len(codes_to_revoke)
+    }
