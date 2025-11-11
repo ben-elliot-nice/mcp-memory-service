@@ -164,3 +164,5 @@ data/
 !.claude/amp/prompts/pending/.gitkeep
 !.claude/amp/responses/ready/.gitkeep
 !.claude/amp/responses/consumed/.gitkeep
+oauth-client-management.postman_collection.json
+POSTMAN_TESTING_GUIDE.md
